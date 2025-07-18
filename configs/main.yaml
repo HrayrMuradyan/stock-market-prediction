@@ -1,0 +1,4 @@
+metadata:
+  tickers_list_filename: 'sp500_tickers_list'
+  tickers_list_save_path: './metadata/tickers_list/'
+  tickers_wikipedia_url: 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'

@@ -1,0 +1,134 @@
+version: "3.8"  # Docker Compose file format version
+
+services:
+
+  # Service for PostgreSQL database used by Airflow
+  # Used to store DAG runs, task history, logs, connections, variables, etc.
+  postgres:  
+    # Use the official Postgres version 13 image
+    # Checks if the image is downloaded, if not downloads from DockerHub
+    image: postgres:13  
+
+    # Environment variables that are used inside the Postgres container to configure the initial database
+    # Creates a postgres user
+    environment:
+      POSTGRES_USER: airflow  
+      POSTGRES_PASSWORD: airflow  
+      POSTGRES_DB: airflow 
+
+    # This is were the data is stored in my local machine
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data  
+
+    # Restart automatically if the container stops
+    # If the container crashes unexpectedly (e.g., network glitch, memory error), it will restart on its own.
+    # You don't have to run docker-compose up again manually unless you want to rebuild or change something.
+    restart: always  
+
+  # Airflow web interface service
+  # Hosts the UI that is accessed at localhost:8080
+  airflow-webserver:  
+    # Official Airflow image with Python 3.10
+    image: apache/airflow:2.8.1-python3.10 
+
+    # Wait for Postgres to be ready before starting 
+    depends_on:
+      - postgres  
+    
+    environment:
+      # Purpose: Specifies how Airflow should run tasks.
+      # LocalExecutor: Executes tasks in parallel on the same machine using multiprocessing.
+      # Alternative: SequentialExecutor (one task at a time) or CeleryExecutor (distributed across workers).
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor  
+
+      # Tells Airflow where the metadata database is. How to connect to it
+      # The username, password and db name are used here to connect
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+
+      # The FERNET_KEY is used by Airflow to encrypt and decrypt sensitive data stored in its metadata database.
+      # It uses Fernet encryption — a symmetric encryption method from the cryptography Python library.
+      # In airflow I might save some API KEYs, passwords or other credentials which should be stored securely
+      AIRFLOW__CORE__FERNET_KEY: ''  
+
+      # Don't load example DAGs
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'  
+
+      # IF I define these here, I can run docker-compose run airflow-webserver airflow users create without username and password arguments
+      # Default UI login username
+      _AIRFLOW_WWW_USER_USERNAME: airflow 
+
+      # Default UI login password 
+      _AIRFLOW_WWW_USER_PASSWORD: airflow  
+
+    
+    volumes:
+      # This is where you write your DAG Python scripts. It mounts the folder to the container, when something changes there, it changes in the container as well.
+      - ./dags:/opt/airflow/dags  
+
+      # Airflow writes task logs here. With this mount, logs are saved on your machine so you can view them even if the container is restarted or deleted.
+      - ./logs:/opt/airflow/logs 
+
+      # Custom Airflow components
+      - ./plugins:/opt/airflow/plugins 
+
+      # Add src folder to be able to read functions from there as well
+      - ./src:/opt/airflow/src
+
+      # Add configs folder to be able to fetch configs
+      - ./configs:/opt/airflow/configs
+
+      # Add metadata folder to be able to get metadata back to PC
+      - ./metadata:/opt/airflow/metadata
+
+    # Expose Airflow webserver at localhost:8080
+    ports:
+      - "8080:8080"  
+
+    # Run the webserver process
+    # When starting this container, run the webserver command inside the Airflow image.
+    # In Airflow, the webserver command launches the Airflow UI.
+    command: webserver
+
+    # Restart on failure or crash  
+    restart: always  
+
+  # Airflow scheduler (runs the DAGs on schedule)
+  # Runs separately from the webserver but shares the same volumes and DB
+  airflow-scheduler:  
+
+    # Same image as webserver
+    image: apache/airflow:2.8.1-python3.10  
+
+    # Ensure webserver is started before scheduler
+    depends_on:
+      - airflow-webserver  
+
+    environment:
+
+      # Same executor setting
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor  
+
+      # Same DB connection string
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+        
+    volumes:
+      - ./dags:/opt/airflow/dags  
+      - ./logs:/opt/airflow/logs  
+      - ./plugins:/opt/airflow/plugins  
+      - ./src:/opt/airflow/src
+      - ./configs:/opt/airflow/configs
+      - ./metadata:/opt/airflow/metadata
+
+    # Run the scheduler process
+    # Monitors your DAGs: It continuously checks which tasks are ready to run.
+    # Decides what to run: Based on your DAG schedule intervals and task dependencies.
+    # Triggers tasks: Sends runnable tasks to the executor (like LocalExecutor, CeleryExecutor, etc.).
+    command: scheduler
+
+    restart: always
+
+
+# You do not need to declare bind mounts at the bottom of the YAML file — Docker uses your local folder directly.
+# Named volums should be declared and are managed by Docker.
+volumes:
+  postgres-db-volume:
