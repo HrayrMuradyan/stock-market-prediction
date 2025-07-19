@@ -9,8 +9,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from src.data_extractor.tickers import get_sp_500_tickers_from_wikipedia
 from src.utils.config import load_config
 
-URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 CONFIG = load_config("./configs/main.yaml")
+
+# Get the tickers wikipedia url
+URL = CONFIG['metadata']['tickers_wikipedia_url']
+
+# Get the tickers list filename pattern from the config
+tickers_list_filename_pattern = CONFIG['metadata']['tickers_list_filename']
+
+# Get the tickers list save path from the config
+tickers_list_save_path_str = CONFIG['metadata']['tickers_list_save_path']
 
 
 # Default args for the DAG
@@ -35,6 +43,6 @@ with DAG(
     fetch_and_save_tickers = PythonOperator(
         task_id='fetch_tickers_from_wikipedia',
         python_callable=get_sp_500_tickers_from_wikipedia,
-        op_args=[URL, CONFIG]
+        op_args=[URL, tickers_list_save_path_str, tickers_list_filename_pattern]
     )
 

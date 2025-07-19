@@ -80,6 +80,9 @@ services:
       # Add metadata folder to be able to get metadata back to PC
       - ./metadata:/opt/airflow/metadata
 
+      # Add data folder to be able to use datasets
+      - ./data:/opt/airflow/data
+
     # Expose Airflow webserver at localhost:8080
     ports:
       - "8080:8080"  
@@ -118,6 +121,7 @@ services:
       - ./src:/opt/airflow/src
       - ./configs:/opt/airflow/configs
       - ./metadata:/opt/airflow/metadata
+      - ./data:/opt/airflow/data
 
     # Run the scheduler process
     # Monitors your DAGs: It continuously checks which tasks are ready to run.
