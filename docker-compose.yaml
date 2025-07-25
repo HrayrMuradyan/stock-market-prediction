@@ -28,8 +28,10 @@ services:
   # Airflow web interface service
   # Hosts the UI that is accessed at localhost:8080
   airflow-webserver:  
-    # Official Airflow image with Python 3.10
-    image: apache/airflow:2.8.1-python3.10 
+    # Refer to dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
 
     # Wait for Postgres to be ready before starting 
     depends_on:
@@ -99,8 +101,10 @@ services:
   # Runs separately from the webserver but shares the same volumes and DB
   airflow-scheduler:  
 
-    # Same image as webserver
-    image: apache/airflow:2.8.1-python3.10  
+    # Same as webserver
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
 
     # Ensure webserver is started before scheduler
     depends_on:

@@ -167,7 +167,7 @@ def get_sp_500_tickers_from_wikipedia(url, tickers_list_save_path_str, tickers_l
         if difference:
             
             # Save the difference in a json file
-            with open(str(tickers_list_save_path / f"{tickers_list_filename_pattern}_{today}_difference.json"), "w") as f:
+            with open(str(tickers_list_save_path / f"difference_{tickers_list_filename_pattern}_{today}.json"), "w") as f:
                 json.dump(list(difference), f)
 
     # Return the tickers list
