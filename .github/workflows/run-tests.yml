@@ -12,7 +12,7 @@ on:
   pull_request:
 
     # That targets the main branch
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   ci:
