@@ -1,4 +1,4 @@
-# Quantitative Forecasts of Tech Leaders
+# An Automated Deep Learning Framework for Forecasting Stock Prices of Major Tech Companies
 
 Author: Hrayr Muradyan
 
