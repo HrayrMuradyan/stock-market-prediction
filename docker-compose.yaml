@@ -86,6 +86,9 @@ services:
       # Add data folder to be able to use datasets
       - ./data:/opt/airflow/data
 
+      # Mount pyproject.toml to be able to access it
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
+
     profiles: ["prod"]
 
     # Expose Airflow webserver at localhost:8080
@@ -129,6 +132,7 @@ services:
       - ./configs:/opt/airflow/configs
       - ./metadata:/opt/airflow/metadata
       - ./data:/opt/airflow/data
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
 
     profiles: ["prod"]
 
@@ -152,6 +156,7 @@ services:
       - ./configs:/opt/airflow/configs
       - ./data:/opt/airflow/data
       - ./tests:/opt/airflow/tests
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
 
     working_dir: /opt/airflow
 

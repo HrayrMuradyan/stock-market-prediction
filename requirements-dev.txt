@@ -1,3 +1,4 @@
 yfinance
 pytest
 pytest-cov
+tomli

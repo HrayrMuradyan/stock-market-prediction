@@ -1,0 +1,15 @@
+[project]
+name = "stock_prediction_pipeline"
+version = "0.0.1"
+description = "End-to-end stock prediction pipeline using Airflow, YAML config, and Python"
+authors = [
+    {name = "Hrayr Muradyan", email = "hrayrmuradyan20@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.stock_prediction]
+config_path = "configs/main.yaml"
+
+[tool.pytest.ini_options]
+norecursedirs = ["logs"]
