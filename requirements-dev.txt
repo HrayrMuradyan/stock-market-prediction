@@ -1,3 +1,6 @@
 yfinance
 pytest
 pytest-cov
+tomli
+pandera
+notebook

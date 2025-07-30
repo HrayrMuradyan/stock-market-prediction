@@ -1,2 +1,8 @@
+apache-airflow[postgres,celery]==2.8.1
+flask-session==0.4.0
+psycopg2-binary
 yfinance
 pytest
+tomli
+pandera
+lxml

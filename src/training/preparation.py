@@ -1,6 +1,17 @@
 import pandas as pd
 import numpy as np
 import torch
+from datetime import datetime
+from pathlib import Path
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+
+from src.data.validation import validate_data
+from src.utils.path import verify_existing_dir, verify_saving_path
+from src.data.stocks import read_and_concat_all_stocks
+from src.training.feature_engineering import add_date_as_feature, add_lagged_features
+
 
 def time_series_train_test_split(X, y, validation_window=10):
     """
@@ -118,3 +129,117 @@ def prepare_nn_multistep_dataset(X_raw, y_raw, prediction_window=7):
         y_targets[i, :end - i] = y_np[i:end]
 
     return torch.tensor(X_np, dtype=torch.float32), torch.tensor(y_targets, dtype=torch.float32)
+
+
+def prepare_data_for_training(data_folder_path, target_column, n_lags=1, validation_size=30, prediction_window=7, save_path="./"):
+    """
+    Prepares time series data for training and validation in a neural network model.
+
+    This function reads stock time series data from a folder, applies lagged feature generation,
+    splits the data into training and validation sets using a time-aware split, and formats the
+    data into multistep sequences suitable for neural network training.
+
+    Args:
+        data_folder_path (str): Path to the folder containing stock data files (e.g., CSVs).
+        target_column (str): Name of the target column to be predicted.
+        n_lags (int): Number of lagged time steps to include as features. Must be > 0.
+        validation_size (int): Number of time steps to reserve for validation. Must be > 0.
+        prediction_window (int): Number of future time steps to predict (multistep output). Must be > 0.
+        save_path (str): Path where any intermediate files or outputs should be saved.
+
+    Returns:
+        tuple: A tuple containing four elements:
+            - X_train (Tensor or np.ndarray): Input features for training.
+            - y_train (Tensor or np.ndarray): Target values for training (multistep).
+            - X_valid (Tensor or np.ndarray): Input features for validation.
+            - y_valid (Tensor or np.ndarray): Target values for validation (multistep).
+
+    Raises:
+        TypeError: If input types are not as expected.
+        ValueError: If validation size is too large, or required columns are missing,
+                    or any of the integer arguments are invalid.
+    """
+    # Convert the paths to Path object first
+    data_folder_path = Path(data_folder_path)
+    save_path = Path(save_path)
+    
+    # Check input
+    verify_existing_dir(data_folder_path)
+
+    if not isinstance(target_column, str):
+        raise TypeError(f"Expected target_column to be a string. Got {type(target_column).__name__}.")
+
+    if not isinstance(n_lags, int):
+        raise TypeError(f"Expected n_lags to be an integer. Got {type(n_lags).__name__}.") 
+
+    if n_lags <= 0:
+        raise ValueError(f"Expected n_lags to be an integer greater than 0. You have n_lags={n_lags}")
+
+    if not isinstance(validation_size, int):
+        raise TypeError(f"Expected validation_size to be an integer. Got {type(validation_size).__name__}.") 
+
+    if validation_size <= 0:
+        raise ValueError(f"Expected validation_size to be greater than 0. Got validation_size={validation_size}.")
+
+    if not isinstance(prediction_window, int):
+        raise TypeError(f"Expected prediction_window to be an integer. Got {type(prediction_window).__name__}.") 
+
+    if prediction_window <= 0:
+        raise ValueError(f"Expected prediction_window to be greater than 0. Got prediction_window={prediction_window}.")
+
+
+    verify_saving_path(save_path)
+
+    # Read and concat all stocks data
+    
+    data = read_and_concat_all_stocks(data_folder_path)
+
+    # Validate data
+
+    data = validate_data(data)
+    
+    # The target column should be in the data
+    if target_column not in data.columns:
+        raise ValueError(f"Target column is not present in the data folder you provided. Please verify its presence.")
+
+    # Check if the validation size is larger than the data size
+    data_rows = data.shape[0]
+
+    if validation_size >= data_rows:
+        raise ValueError(f"Expected validation_size to be smaller than the size of the data. Data rows = {data_rows}, validation_size={validation_size}")
+
+    # Add date as feature
+    data = add_date_as_feature(data)
+
+    # Added lagged features to the data (#new-features = #features x n_lags)
+    data_lagged = add_lagged_features(data, target_column, n_lags=n_lags)
+
+    # Separate train data from the target
+    X, y = separate_the_target_column(data_lagged, target_column=target_column)
+
+    # Split the data into train and validation
+    X_train_raw, X_valid_raw, y_train_raw, y_valid_raw = time_series_train_test_split(X=X,
+                                                                                      y=y,
+                                                                                      validation_window=validation_size)
+
+    # Prepare the dataset into tensors. The target variable is converted to a prediction window
+    # Ex. prediction_window=7, each timestamp prediction is a 7-length tensor
+    X_train, y_train = prepare_nn_multistep_dataset(X_train_raw, y_train_raw, prediction_window=prediction_window)
+
+    
+    X_valid, y_valid = prepare_nn_multistep_dataset(X_valid_raw, y_valid_raw, prediction_window=prediction_window)
+
+    # Get todays date
+    todays_date = datetime.today().strftime("%Y-%m-%d")
+
+    # Define the data folder
+    save_folder = save_path / f"{todays_date}"
+
+    # Verify if the save folder exists, if not create it
+    verify_saving_path(save_folder)
+
+    # Save datasets
+    torch.save(X_train, save_folder / "X_train.pt")
+    torch.save(y_train, save_folder / "y_train.pt")
+    torch.save(X_valid, save_folder / "X_valid.pt")
+    torch.save(y_valid, save_folder / "y_valid.pt")

@@ -128,4 +128,4 @@ def trainer(model, train_loader, X_valid, y_valid, optimizer, loss_fn, n_epochs=
 
         print(f"Epoch {epoch+1}/{n_epochs} - Train Loss: {avg_train_loss:.4f} - Val Loss: {val_loss:.4f}")
 
-    return model
+    return model, val_loss

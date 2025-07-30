@@ -3,16 +3,48 @@ import yaml
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from src.utils.path import verify_file_path
+from src.utils.path import verify_file_path, get_project_root_path
+import tomli
 
-def load_config(config_path):
+def get_config_path() -> str:
+    """
+    Load the path to the main project config file from pyproject.toml.
+
+    This function assumes that the `pyproject.toml` file exists in the project root,
+    and that it contains a section like:
+
+        [tool.stock_prediction]
+        config_path = "configs/main.yaml"
+
+    Returns:
+        str: The relative or absolute path to the main config file,
+             as specified under [tool.stock_prediction] in pyproject.toml.
+
+    """
+    # Get the project root path (2 levels above this file)
+    project_root_path = get_project_root_path(2)
+
+    # Path to pyproject.toml
+    pyproject_path = project_root_path / "pyproject.toml"
+
+    # Check if pyproject.toml exists
+    verify_file_path(pyproject_path)
+
+    # Load the TOML data
+    with open(pyproject_path, "rb") as f:
+        data = tomli.load(f)
+
+    # Check if tool.stock_prediction.config_path exists
+    try:
+        return data["tool"]["stock_prediction"]["config_path"]
+    except KeyError as e:
+        raise KeyError(
+            "Missing 'tool.stock_prediction.config_path' in pyproject.toml"
+        ) from e
+
+def load_config():
     """
     Loads a YAML configuration file.
-
-    Parameters:
-    ----------
-    config_path : str or pathlib.Path
-        Path to the configuration file.
 
     Returns:
     -------
@@ -28,8 +60,15 @@ def load_config(config_path):
     RuntimeError
         If there is an error opening or reading the file.
     """
+
+    # Get the config path
+    config_path = get_config_path()
+
+    # Define the project root path
+    project_root_path = get_project_root_path(2)
+
     # Convert the path to a Path class
-    path = Path(config_path)
+    path = project_root_path / config_path
 
     # Verify if the argument is a file and it exists
     verify_file_path(path)
@@ -41,8 +80,33 @@ def load_config(config_path):
     # Try to open the config file
     try:
         with open(path, "r") as f:
-            return yaml.safe_load(f)
+            main_config = yaml.safe_load(f)
 
     # Raise an error if reading the file fails
     except Exception as e:
         raise RuntimeError(f"Failed to open or parse the config file '{path}': {e}")
+    
+    # For other configs
+    for config, config_path in main_config["configs"].items():
+
+        # Convert the path to a Path object and check if it exists or not
+        config_path = project_root_path / Path(config_path)
+        verify_file_path(config_path)
+
+        # Try to open it
+        try:
+            with open(config_path, "r") as f:
+                temp_config = yaml.safe_load(f)
+
+        # Raise an error if there was an issue reading the file
+        except Exception as e:
+            raise RuntimeError(f"Failed to open or parse the config file '{config_path}': {e}")
+        
+        # Add the temp config to the main config
+        main_config[config] = temp_config
+
+    return main_config
+
+    
+
+

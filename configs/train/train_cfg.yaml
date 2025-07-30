@@ -1,0 +1,30 @@
+general:
+  device: 'cpu'
+
+target:
+  target_column: 'AAPL'
+  prediction_window: 7
+
+
+train_test_split:
+  validation_size: 30
+
+
+feature_engineering:
+  n_lags: 1
+
+model:
+  architecture: 'FeedforwardRegressor'
+  model_params:
+    hidden_dim: 512
+  save_path: './models/'
+
+
+optimization:
+  loss_fn: 'masked_mse_loss'
+  batch_size: 32
+  n_epochs: 100
+  learning_rate: 0.001
+  shuffle: True
+
+

@@ -54,7 +54,7 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ''  
 
       # Don't load example DAGs
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'  
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
 
       # IF I define these here, I can run docker-compose run airflow-webserver airflow users create without username and password arguments
       # Default UI login username
@@ -86,6 +86,11 @@ services:
       # Add data folder to be able to use datasets
       - ./data:/opt/airflow/data
 
+      # Mount pyproject.toml to be able to access it
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
+
+      - ./models:/opt/airflow/models
+
     profiles: ["prod"]
 
     # Expose Airflow webserver at localhost:8080
@@ -95,7 +100,7 @@ services:
     # Run the webserver process
     # When starting this container, run the webserver command inside the Airflow image.
     # In Airflow, the webserver command launches the Airflow UI.
-    command: webserver
+    command: airflow webserver
 
     # Restart on failure or crash  
     restart: always  
@@ -129,6 +134,8 @@ services:
       - ./configs:/opt/airflow/configs
       - ./metadata:/opt/airflow/metadata
       - ./data:/opt/airflow/data
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
+      - ./models:/opt/airflow/models
 
     profiles: ["prod"]
 
@@ -136,7 +143,7 @@ services:
     # Monitors your DAGs: It continuously checks which tasks are ready to run.
     # Decides what to run: Based on your DAG schedule intervals and task dependencies.
     # Triggers tasks: Sends runnable tasks to the executor (like LocalExecutor, CeleryExecutor, etc.).
-    command: scheduler
+    command: airflow scheduler
 
     restart: always
 
@@ -152,8 +159,12 @@ services:
       - ./configs:/opt/airflow/configs
       - ./data:/opt/airflow/data
       - ./tests:/opt/airflow/tests
+      - ./pyproject.toml:/opt/airflow/pyproject.toml
+      - ./notebooks:/opt/airflow/notebooks
 
     working_dir: /opt/airflow
+    ports:
+    - "8888:8888"
 
     profiles: ["dev"]
 
