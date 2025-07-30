@@ -14,20 +14,17 @@ def create_dag() -> DAG:
     Creates an Airflow DAG that fetches the S&P 500 tickers from Wikipedia weekly
     and saves them to a JSON file.
 
-    Args:
-        config_path (str): Path to the YAML config file.
-
     Returns:
         DAG: An Airflow DAG object.
     """
     from src.utils.config import load_config
-    from src.data_extractor.tickers import get_sp_500_tickers_from_wikipedia
+    from src.data.tickers import get_sp_500_tickers_from_wikipedia
 
     # Load configuration
     config = load_config()
-    url = config["metadata"]["tickers_wikipedia_url"]
-    save_path = config["metadata"]["tickers_list_save_path"]
-    filename_pattern = config["metadata"]["tickers_list_filename"]
+    url = config["tickers"]["tickers_wikipedia_url"]
+    save_path = config["tickers"]["tickers_list_save_path"]
+    filename_pattern = config["tickers"]["tickers_list_filename"]
 
     # DAG default arguments
     default_args = {
