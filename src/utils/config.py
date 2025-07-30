@@ -64,8 +64,11 @@ def load_config():
     # Get the config path
     config_path = get_config_path()
 
+    # Define the project root path
+    project_root_path = get_project_root_path(2)
+
     # Convert the path to a Path class
-    path = get_project_root_path(2) / config_path
+    path = project_root_path / config_path
 
     # Verify if the argument is a file and it exists
     verify_file_path(path)
@@ -77,11 +80,33 @@ def load_config():
     # Try to open the config file
     try:
         with open(path, "r") as f:
-            return yaml.safe_load(f)
+            main_config = yaml.safe_load(f)
 
     # Raise an error if reading the file fails
     except Exception as e:
         raise RuntimeError(f"Failed to open or parse the config file '{path}': {e}")
+    
+    # For other configs
+    for config, config_path in main_config["configs"].items():
+
+        # Convert the path to a Path object and check if it exists or not
+        config_path = project_root_path / Path(config_path)
+        verify_file_path(config_path)
+
+        # Try to open it
+        try:
+            with open(config_path, "r") as f:
+                temp_config = yaml.safe_load(f)
+
+        # Raise an error if there was an issue reading the file
+        except Exception as e:
+            raise RuntimeError(f"Failed to open or parse the config file '{config_path}': {e}")
+        
+        # Add the temp config to the main config
+        main_config[config] = temp_config
+
+    return main_config
+
     
 
 
