@@ -5,7 +5,7 @@ import pandas as pd
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from src.utils.path import verify_saving_path, verify_existing_path
+from src.utils.path import verify_saving_path, verify_existing_dir
 from src.utils.file import remove_file, copy_file
 
 
@@ -157,7 +157,7 @@ def download_and_save_stock_data(tickers_list, stock_data_start_date, exclude_ti
 def update_stock_data(data_folder, stock_data_start_date, keep_n_archived=3, column="Adj Close"):
 
     # Check the input
-    verify_existing_path(data_folder)
+    verify_existing_dir(data_folder)
 
     if not isinstance(stock_data_start_date, str):
         raise TypeError(f"Expected stock_data_start_date to be a string. Got {type(stock_data_start_date).__name__}.")
@@ -332,6 +332,9 @@ def read_and_concat_all_stocks(data_folder_path):
     # Input check
     if not isinstance(data_folder_path, (str, Path)):
         raise TypeError(f"Expected data_folder_path argument to be a string or a Path object. Got {type(data_folder_path).__name__}.")
+    
+    # Make data folder path a Path object if it's not already
+    data_folder_path = Path(data_folder_path)
    
     # Define a list to load and append dataframes
     data_list = []
@@ -345,8 +348,76 @@ def read_and_concat_all_stocks(data_folder_path):
         # Get the most recent stock data from the tickern name
         most_recent_stock_data = sorted(ticker_path.glob(f"{ticker}_*"))[-1]
 
+
         # Read the data and append to the list
         data_list.append(pd.read_csv(str(most_recent_stock_data), index_col="Date", parse_dates=True))
 
     # Concatenate all dataframes of the list and return 
     return pd.concat(data_list, axis=1)
+
+
+
+
+def read_processed_stock_data(data_folder):
+    """
+    Find the most recent dated subfolder in the given data folder,
+    then load and return the PyTorch tensors stored in the files:
+    'X_train.pt', 'X_valid.pt', 'y_train.pt', and 'y_valid.pt'.
+
+    Assumes that the subfolder names are dates in the format 'YYYY-MM-DD'
+    and that each subfolder contains the above four files.
+
+    Parameters
+    ----------
+    data_folder : str or Path
+        Path to the main data folder containing date-named subfolders.
+
+    Returns
+    -------
+    tuple of torch.Tensor
+        Returns a tuple with four tensors in this order:
+        (X_train, X_valid, y_train, y_valid)
+
+    Raises
+    ------
+    FileNotFoundError
+        If the data_folder does not exist, is not a directory,
+        or if any of the expected .pt files are missing.
+    ValueError
+        If no valid date-named subfolders are found or folder names do not match the date format.
+    """
+    import torch
+
+    # Convert input to Path object if needed
+    data_folder = Path(data_folder)
+
+    # Verify that the directory exists
+    verify_existing_dir(data_folder)
+
+    # List all subfolders inside data_folder
+    subfolders = data_folder.glob("*")
+
+    # Get the most recent folder by date-parsing folder names
+    most_recent_folder = max(
+        subfolders,
+        key=lambda f: datetime.strptime(f.name, "%Y-%m-%d")
+    )
+
+    # Define expected files inside the most recent folder
+    expected_files = ["X_train.pt", "X_valid.pt", "y_train.pt", "y_valid.pt"]
+
+    # Build full paths and check if all files exist
+    file_paths = {}
+    for fname in expected_files:
+        fpath = most_recent_folder / fname
+        if not fpath.is_file():
+            raise FileNotFoundError(f"Expected file not found: {fpath}")
+        file_paths[fname] = fpath
+
+    # Load the tensors using torch.load
+    X_train = torch.load(file_paths["X_train.pt"])
+    X_valid = torch.load(file_paths["X_valid.pt"])
+    y_train = torch.load(file_paths["y_train.pt"])
+    y_valid = torch.load(file_paths["y_valid.pt"])
+
+    return X_train, X_valid, y_train, y_valid

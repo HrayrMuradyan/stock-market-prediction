@@ -6,7 +6,7 @@ import json
 import pandas as pd
 from datetime import datetime
 import logging
-from src.utils.path import verify_existing_path, verify_saving_path
+from src.utils.path import verify_existing_dir, verify_saving_path
 
 
 def get_most_recent_tickers_file(tickers_folder, tickers_list_filename_pattern):
@@ -34,7 +34,7 @@ def get_most_recent_tickers_file(tickers_folder, tickers_list_filename_pattern):
     tickers_folder_path = Path(tickers_folder)
 
     # Verify that the path exists
-    verify_existing_path(tickers_folder_path)
+    verify_existing_dir(tickers_folder_path)
 
     # Get sorted tickers' files
     tickers_sorted = sorted(tickers_folder_path.glob(f"{tickers_list_filename_pattern}_*.json"))
