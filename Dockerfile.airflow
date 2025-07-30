@@ -1,5 +1,29 @@
-FROM apache/airflow:2.8.1-python3.10
+# Start from PyTorch CUDA 11.8 runtime image (includes Python + CUDA + PyTorch)
+FROM pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
 
-COPY requirements.txt /requirements.txt
+# Set environment variables
+ENV AIRFLOW_HOME=/opt/airflow
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir -r /requirements.txt
+# Install system dependencies needed for Airflow and general use
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR $AIRFLOW_HOME
+
+# Copy requirements file (should contain airflow and any extras, but NOT torch)
+COPY requirements.txt .
+
+# Upgrade pip and install requirements
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Remove Airflow example DAGs (SHOULD BE RESOLVED LATER)
+RUN find /opt/conda/lib/python3.10/site-packages/airflow/example_dags -type f -name "*.py" -delete
+

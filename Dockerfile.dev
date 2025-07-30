@@ -1,7 +1,18 @@
-FROM python:3.10
+# Use official PyTorch image with CUDA 11.8
+FROM pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
 
-COPY requirements-dev.txt /requirements-dev.txt
+# Set working directory
+WORKDIR /opt/airflow
 
-RUN pip install --no-cache-dir -r /requirements-dev.txt
+# Environment settings for clean logs and no bytecode
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
+# Copy requirements and install Python dependencies
+COPY requirements-dev.txt .
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements-dev.txt
+
+# Default command (keeps container alive for dev use)
 CMD ["tail", "-f", "/dev/null"]
