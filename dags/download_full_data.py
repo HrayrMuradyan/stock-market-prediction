@@ -13,23 +13,24 @@ def create_dag() -> DAG:
     """
     Creates an Airflow DAG that downloads full historical stock data for all tickers.
 
-    Args:
-        config_path (str): Path to the YAML config file.
-
     Returns:
         DAG: An Airflow DAG object.
     """
     # Lazy imports to avoid breaking DAG parsing
     import json
     from src.utils.config import load_config
-    from src.data_extractor.tickers import get_most_recent_tickers_file
-    from src.data_extractor.stocks import download_and_save_stock_data
+    from src.data.tickers import get_most_recent_tickers_file
+    from src.data.stocks import download_and_save_stock_data
     
 
     # Load configuration
     config = load_config()
-    tickers_folder = config["metadata"]["tickers_list_save_path"]
-    filename_pattern = config["metadata"]["tickers_list_filename"]
+    tickers_folder = config["tickers"]["tickers_list_save_path"]
+    filename_pattern = config["tickers"]["tickers_list_filename"]
+    stock_data_start_date = config["stock"]["stock_data_start_date"]
+    exclude_tickers = set(config["tickers"]["exclude_tickers"])
+    data_save_path = config["stock"]["stock_data_save_path"]
+
     most_recent_file = get_most_recent_tickers_file(tickers_folder, filename_pattern)
 
     with open(most_recent_file, "r") as f:
@@ -57,9 +58,9 @@ def create_dag() -> DAG:
             python_callable=download_and_save_stock_data,
             op_kwargs={
                 "tickers_list": tickers_list,
-                "stock_data_start_date": config["stock"]["stock_data_start_date"],
-                "exclude_tickers": set(config["metadata"]["exclude_tickers"]),
-                "data_save_path": config["stock"]["stock_data_save_path"]
+                "stock_data_start_date": stock_data_start_date,
+                "exclude_tickers": exclude_tickers,
+                "data_save_path": data_save_path
             }
         )
 
