@@ -1,4 +1,7 @@
 from pathlib import Path
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 def verify_saving_path(path):
     """
@@ -80,7 +83,7 @@ def verify_file_path(path):
         raise ValueError(f"Path '{path}' is not a file.")
 
 
-def verify_existing_path(path):
+def verify_existing_dir(path):
     """
     Validates that the given path exists and is a directory.
 
