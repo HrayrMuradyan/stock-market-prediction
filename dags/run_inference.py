@@ -5,15 +5,13 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-
-
 # DAG metadata
-DAG_ID = "train_model"
-DAG_DESCRIPTION = "Train a neural network model on processed data."
+DAG_ID = "run_inference"
+DAG_DESCRIPTION = "Predict future data from the last row saved and trained model."
 
 def create_dag() -> DAG:
     """
-    Creates an Airflow DAG that trains a neural network model on processed stock data.
+    Creates an Airflow DAG that predicts the future data from the last row saved and trained model.
 
     Returns
     -------
@@ -21,8 +19,7 @@ def create_dag() -> DAG:
         The DAG object to be registered by Airflow.
     """
     # Lazy imports to avoid breaking DAG parsing
-    from src.training.training_pipeline import train_model_from_config
-
+    from src.inference.predictions import generate_and_save_future_predictions
 
     default_args = {
         "owner": "airflow",
@@ -37,13 +34,13 @@ def create_dag() -> DAG:
         start_date=datetime(2024, 1, 1),
         schedule_interval=None,  
         catchup=False,
-        tags=["train", "neural network"]
+        tags=["run", "inference"]
     )
 
     with dag:
         PythonOperator(
-            task_id="train_model",
-            python_callable=train_model_from_config,
+            task_id="run_inference",
+            python_callable=generate_and_save_future_predictions,
         )
 
     return dag
