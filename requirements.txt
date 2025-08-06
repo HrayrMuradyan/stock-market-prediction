@@ -6,3 +6,6 @@ pytest
 tomli
 pandera
 lxml
+matplotlib
+plotly
+pandas_market_calendars

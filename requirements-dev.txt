@@ -4,3 +4,7 @@ pytest-cov
 tomli
 pandera
 notebook
+flask
+matplotlib
+plotly
+pandas_market_calendars

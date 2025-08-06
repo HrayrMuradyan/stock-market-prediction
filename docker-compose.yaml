@@ -91,6 +91,13 @@ services:
 
       - ./models:/opt/airflow/models
 
+      - ./results:/opt/airflow/results
+
+      - ./app.py:/opt/airflow/app.py
+      - ./templates:/opt/airflow/templates
+      - ./static:/opt/airflow/static
+      - ./predictions:/opt/airflow/predictions
+
     profiles: ["prod"]
 
     # Expose Airflow webserver at localhost:8080
@@ -136,6 +143,12 @@ services:
       - ./data:/opt/airflow/data
       - ./pyproject.toml:/opt/airflow/pyproject.toml
       - ./models:/opt/airflow/models
+      - ./results:/opt/airflow/results
+      - ./app.py:/opt/airflow/app.py
+      - ./templates:/opt/airflow/templates
+      - ./static:/opt/airflow/static
+      - ./predictions:/opt/airflow/predictions
+
 
     profiles: ["prod"]
 
@@ -161,6 +174,12 @@ services:
       - ./tests:/opt/airflow/tests
       - ./pyproject.toml:/opt/airflow/pyproject.toml
       - ./notebooks:/opt/airflow/notebooks
+      - ./models:/opt/airflow/models
+      - ./results:/opt/airflow/results
+      - ./app.py:/opt/airflow/app.py
+      - ./templates:/opt/airflow/templates
+      - ./static:/opt/airflow/static
+      - ./predictions:/opt/airflow/predictions
 
     working_dir: /opt/airflow
     ports:
