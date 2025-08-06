@@ -11,7 +11,12 @@ def check_instance(name, val, expected_type):
         TypeError: If `val` is not an instance of `expected_type`.
     """
     if not isinstance(val, expected_type):
-        raise TypeError(f"Expected {name} to be a {expected_type.__name__}. Got {type(val).__name__}.")
+        expected_type_name = (
+            ", ".join(t.__name__ for t in expected_type)
+            if isinstance(expected_type, tuple)
+            else expected_type.__name__
+        )
+        raise TypeError(f"Expected {name} to be a {expected_type_name}. Got {type(val).__name__}.")
 
 
 def check_callable(name, val):

@@ -131,7 +131,7 @@ def prepare_nn_multistep_dataset(X_raw, y_raw, prediction_window=7):
     return torch.tensor(X_np, dtype=torch.float32), torch.tensor(y_targets, dtype=torch.float32)
 
 
-def prepare_data_for_training(data_folder_path, target_column, n_lags=1, validation_size=30, prediction_window=7, save_path="./"):
+def prepare_data_for_training(data_folder_path, target_columns, n_lags=1, validation_size=30, prediction_window=7, save_path="./"):
     """
     Prepares time series data for training and validation in a neural network model.
 
@@ -141,7 +141,7 @@ def prepare_data_for_training(data_folder_path, target_column, n_lags=1, validat
 
     Args:
         data_folder_path (str): Path to the folder containing stock data files (e.g., CSVs).
-        target_column (str): Name of the target column to be predicted.
+        target_columns (list): The list of the target columns to be predicted.
         n_lags (int): Number of lagged time steps to include as features. Must be > 0.
         validation_size (int): Number of time steps to reserve for validation. Must be > 0.
         prediction_window (int): Number of future time steps to predict (multistep output). Must be > 0.
@@ -166,8 +166,8 @@ def prepare_data_for_training(data_folder_path, target_column, n_lags=1, validat
     # Check input
     verify_existing_dir(data_folder_path)
 
-    if not isinstance(target_column, str):
-        raise TypeError(f"Expected target_column to be a string. Got {type(target_column).__name__}.")
+    if not isinstance(target_columns, list):
+        raise TypeError(f"Expected target_column to be a list. Got {type(target_columns).__name__}.")
 
     if not isinstance(n_lags, int):
         raise TypeError(f"Expected n_lags to be an integer. Got {type(n_lags).__name__}.") 
@@ -191,55 +191,79 @@ def prepare_data_for_training(data_folder_path, target_column, n_lags=1, validat
     verify_saving_path(save_path)
 
     # Read and concat all stocks data
-    
+    # Ex. shape is (number of days, number of stocks) = (3500, 420)
     data = read_and_concat_all_stocks(data_folder_path)
 
     # Validate data
-
     data = validate_data(data)
     
     # The target column should be in the data
-    if target_column not in data.columns:
-        raise ValueError(f"Target column is not present in the data folder you provided. Please verify its presence.")
+    if not any([col in data.columns for col in target_columns]):
+        raise ValueError(f"None of the provided target columns is present in the data folder you provided. Please verify their presence.")
 
     # Check if the validation size is larger than the data size
     data_rows = data.shape[0]
 
     if validation_size >= data_rows:
         raise ValueError(f"Expected validation_size to be smaller than the size of the data. Data rows = {data_rows}, validation_size={validation_size}")
+    
+    # The most recent date in the data
+    most_recent_date_in_data = (data.index[-1] + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Add date as feature
+    # Ex. shape is (number of days, number of stocks+3) = (3500, 423)
     data = add_date_as_feature(data)
 
-    # Added lagged features to the data (#new-features = #features x n_lags)
-    data_lagged = add_lagged_features(data, target_column, n_lags=n_lags)
+    # For each target column create a processed dataframe and save it
+    for target_column in target_columns:
+        if target_column not in data.columns:
+            print(f"The target column {target_column} was not in the dataframe. Skipping...")
+            continue
 
-    # Separate train data from the target
-    X, y = separate_the_target_column(data_lagged, target_column=target_column)
+        # Added lagged features to the data (#new-features = #features x n_lags)
+        data_lagged, last_row_lagged = add_lagged_features(data, target_column, n_lags=n_lags)
 
-    # Split the data into train and validation
-    X_train_raw, X_valid_raw, y_train_raw, y_valid_raw = time_series_train_test_split(X=X,
-                                                                                      y=y,
-                                                                                      validation_window=validation_size)
+        # Separate train data from the target
+        X, y = separate_the_target_column(data_lagged, target_column=target_column)
 
-    # Prepare the dataset into tensors. The target variable is converted to a prediction window
-    # Ex. prediction_window=7, each timestamp prediction is a 7-length tensor
-    X_train, y_train = prepare_nn_multistep_dataset(X_train_raw, y_train_raw, prediction_window=prediction_window)
+        # Split the data into train and validation
+        X_train_raw, X_valid_raw, y_train_raw, y_valid_raw = time_series_train_test_split(X=X,
+                                                                                          y=y,
+                                                                                          validation_window=validation_size)
+        
+        # Save the dates of the train and validation sets for later use
+        train_dates = list(y_train_raw.index)
+        valid_dates = list(y_valid_raw.index)
 
-    
-    X_valid, y_valid = prepare_nn_multistep_dataset(X_valid_raw, y_valid_raw, prediction_window=prediction_window)
+        # Prepare the dataset into tensors. The target variable is converted to a prediction window
+        # Ex. prediction_window=7, each timestamp prediction is a 7-length tensor
+        X_train, y_train = prepare_nn_multistep_dataset(X_train_raw, y_train_raw, prediction_window=prediction_window)
 
-    # Get todays date
-    todays_date = datetime.today().strftime("%Y-%m-%d")
+        
+        X_valid, y_valid = prepare_nn_multistep_dataset(X_valid_raw, y_valid_raw, prediction_window=prediction_window)
 
-    # Define the data folder
-    save_folder = save_path / f"{todays_date}"
+        # Get todays date
+        todays_date = datetime.today().strftime("%Y-%m-%d")
 
-    # Verify if the save folder exists, if not create it
-    verify_saving_path(save_folder)
+        # Define the data folder
+        save_folder = save_path / todays_date / target_column
 
-    # Save datasets
-    torch.save(X_train, save_folder / "X_train.pt")
-    torch.save(y_train, save_folder / "y_train.pt")
-    torch.save(X_valid, save_folder / "X_valid.pt")
-    torch.save(y_valid, save_folder / "y_valid.pt")
+        # Verify if the save folder exists, if not create it
+        verify_saving_path(save_folder)
+
+        # Save datasets
+        torch.save(X_train, save_folder / "X_train.pt")
+        torch.save(y_train, save_folder / "y_train.pt")
+        torch.save(X_valid, save_folder / "X_valid.pt")
+        torch.save(y_valid, save_folder / "y_valid.pt")
+
+        # Save the dates
+        torch.save(train_dates, save_folder / "y_train_dates.pt")
+        torch.save(valid_dates, save_folder / "y_valid_dates.pt")
+
+        # Save the last row for later real-time predictions
+        torch.save(
+            {most_recent_date_in_data: torch.tensor(last_row_lagged.to_numpy(), dtype=torch.float32)},
+            save_folder / "last_row.pt"
+        )
+
