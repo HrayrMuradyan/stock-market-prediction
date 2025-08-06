@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ model }} Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="div-tab-nav">
+      <h2>End-to-End Stock Prediction Framework</h2>
+      <nav class="tab-nav">
+        {% for m in all_models %}
+          <a href="{{ url_for('dashboard', ticker_name=m) }}" class="{% if m == model %}active{% endif %}">{{ m }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+
+    <div class="main-title">
+      <h1><span class="model-name">{{ model }}</span> - Stock Dashboard</h1>
+      <h2>(Latest Model: <span class="latest-model-name">{{ latest_model }}</span>)</h2>
+    </div>
+
+    <div class="main-inference-plot">
+      {{ plots["real_time_inference"] | safe }}
+    </div>
+
+    <div class="metrics-params-container">
+      <section class="metrics">
+        <h2>Metrics</h2>
+        <section class="params">
+          <button id="showParamsBtn">⚙️ Show Hyperparameters</button>
+
+          <div id="paramsModal" class="modal">
+            <div class="modal-content">
+              <span class="close-btn">&times;</span>
+              <h2>Training Hyperparameters</h2>
+              <ul>
+                {% for k, v in params.items() %}
+                  <li><strong>{{ k }}:</strong> {{ v }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </section>
+        <p>
+          Training metrics provide insight into how the model performs on the training and validation (unseen) data. A variety of metrics are used to assess performance. Additionally, you can click the 'Show Hyperparameters' button above to view the hyperparameters used to train the latest model.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Train</th>
+              <th>Valid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k, v in metrics.items() %}
+              <tr>
+                <td><strong>{{ k.upper() }}</strong></td>
+                <td>{{ "%.3f"|format(v.train) }}</td>
+                <td>{{ "%.3f"|format(v.valid) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      
+    </div>
+
+    <section class="training-slider">
+      <h2>Training Process</h2>
+      <p>Training process showing how the model fits the time-series over epochs. It provides insight into how predictions evolve and improve during training, helping identify convergence patterns or potential overfitting.</p>
+      <div class="training-slider-plot">
+        {{ plots["predictions_with_slider"] | safe }}
+      </div>
+    </section>
+
+    <section class="errors">
+      <h2>Errors Through Time</h2>
+      <div class="tabs">
+          <button class="tab-button active" onclick="showTab('SE')">Squared Error</button>
+          <button class="tab-button" onclick="showTab('AE')">Absolute Error</button>
+          <button class="tab-button" onclick="showTab('APE')">Percentage Error</button>
+          <button class="tab-button" onclick="showTab('DirectionalAccuracy')">Directional Accuracy</button>
+      </div>
+
+      <div class="tab-content-container">
+          <div id="SE" class="tab-content active">
+              {{ plots["error_plot_squared_error"] | safe }}
+          </div>
+          <div id="AE" class="tab-content">
+              {{ plots["error_plot_absolute_error"] | safe }}
+          </div>
+          <div id="APE" class="tab-content">
+              {{ plots["error_plot_percentage_error"] | safe }}
+          </div>
+          <div id="DirectionalAccuracy" class="tab-content">
+              {{ plots["error_plot_directional_accuracy"] | safe }}
+          </div>
+      </div>
+
+    </section>
+  </div>
+  
+  <script src="{{ url_for('static', filename='javascript/hyperparams-popup.js') }}"></script>
+  <script src="{{ url_for('static', filename='javascript/error-tab-selector.js') }}"></script>
+</body>
+</html>

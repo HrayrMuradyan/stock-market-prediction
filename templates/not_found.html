@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Model Not Found</title>
+</head>
+<body>
+  <h1>404 - Model '{{ model }}' not found</h1>
+  <p>Try one of the available models:</p>
+  <ul>
+    {% for m in all_models %}
+      <li><a href="{{ url_for('dashboard', model_name=m) }}">{{ m }}</a></li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
