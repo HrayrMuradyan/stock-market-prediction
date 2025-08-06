@@ -48,7 +48,7 @@ def create_dag() -> DAG:
             python_callable=prepare_data_for_training,
             op_kwargs={
                 "data_folder_path": config["stock"]["stock_data_save_path"],
-                "target_column": config["train_config"]["target"]["target_column"],
+                "target_columns": config["train_config"]["target"]["target_columns"],
                 "n_lags": config["train_config"]["feature_engineering"]["n_lags"],
                 "validation_size": config["train_config"]["train_test_split"]["validation_size"],
                 "prediction_window": config["train_config"]["target"]["prediction_window"],

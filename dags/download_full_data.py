@@ -17,9 +17,7 @@ def create_dag() -> DAG:
         DAG: An Airflow DAG object.
     """
     # Lazy imports to avoid breaking DAG parsing
-    import json
     from src.utils.config import load_config
-    from src.data.tickers import get_most_recent_tickers_file
     from src.data.stocks import download_and_save_stock_data
     
 
@@ -30,12 +28,7 @@ def create_dag() -> DAG:
     stock_data_start_date = config["stock"]["stock_data_start_date"]
     exclude_tickers = set(config["tickers"]["exclude_tickers"])
     data_save_path = config["stock"]["stock_data_save_path"]
-
-    most_recent_file = get_most_recent_tickers_file(tickers_folder, filename_pattern)
-
-    with open(most_recent_file, "r") as f:
-        tickers_list = json.load(f)
-
+    
     default_args = {
         "owner": "airflow",
         "retries": 3,
@@ -57,7 +50,8 @@ def create_dag() -> DAG:
             task_id="download_full_data",
             python_callable=download_and_save_stock_data,
             op_kwargs={
-                "tickers_list": tickers_list,
+                "tickers_folder": tickers_folder,
+                "filename_pattern": filename_pattern,
                 "stock_data_start_date": stock_data_start_date,
                 "exclude_tickers": exclude_tickers,
                 "data_save_path": data_save_path
