@@ -2,7 +2,10 @@ general:
   device: 'cpu'
 
 target:
-  target_column: 'AAPL'
+  target_columns:
+  - 'AAPL'
+  - 'GOOGL'
+  
   prediction_window: 7
 
 
