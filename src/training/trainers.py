@@ -1,7 +1,12 @@
 import torch
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+from src.training.predictions import get_predictions_in_batches
+from torch.utils.data import DataLoader, TensorDataset
 
 
-def trainer(model, train_loader, X_valid, y_valid, optimizer, loss_fn, n_epochs=50, device="cpu"):
+def trainer(model, X_train, y_train, X_valid, y_valid, optimizer, loss_fn, n_epochs=50, device="cpu", batch_size=32, shuffle=True):
     """
     Train a PyTorch model using the provided training data loader and evaluate on a validation set.
 
@@ -42,9 +47,12 @@ def trainer(model, train_loader, X_valid, y_valid, optimizer, loss_fn, n_epochs=
     # ---------------- Input Checks ----------------
     if not isinstance(model, torch.nn.Module):
         raise TypeError(f"Expected model to be an instance of torch.nn.Module, got {type(model).__name__}.")
+    
+    if not isinstance(X_train, torch.Tensor):
+        raise TypeError(f"Expected X_train to be a torch.Tensor, got {type(X_train).__name__}.")
 
-    if not isinstance(train_loader, torch.utils.data.DataLoader):
-        raise TypeError(f"Expected train_loader to be a torch.utils.data.DataLoader, got {type(train_loader).__name__}.")
+    if not isinstance(y_train, torch.Tensor):
+        raise TypeError(f"Expected y_train to be a torch.Tensor, got {type(y_train).__name__}.")
 
     if not isinstance(X_valid, torch.Tensor):
         raise TypeError(f"Expected X_valid to be a torch.Tensor, got {type(X_valid).__name__}.")
@@ -68,8 +76,16 @@ def trainer(model, train_loader, X_valid, y_valid, optimizer, loss_fn, n_epochs=
     if X_valid.size(0) != y_valid.size(0):
         raise ValueError(f"X_valid and y_valid must have the same number of samples, got {X_valid.size(0)} and {y_valid.size(0)}.")
     
+    # Wrap training data into a DataLoader
+    train_dataset = TensorDataset(X_train, y_train)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+    
     # Convert the model to training mode
     model.train()
+
+    # Define predictions list to save each epoch
+    train_preds_list = []
+    valid_preds_list = []
 
     # For each epoch
     for epoch in range(n_epochs):
@@ -111,21 +127,21 @@ def trainer(model, train_loader, X_valid, y_valid, optimizer, loss_fn, n_epochs=
         # Disable the gradient calculation
         with torch.no_grad():
 
-            # Convert the input batch to device
-            X_valid_device = X_valid.to(device)
+            # Get the validation prediction and calculate the loss
+            valid_preds = get_predictions_in_batches(model, X_valid, batch_size=batch_size, device=device)
+            val_loss = loss_fn(valid_preds, y_valid).item()
 
-            # Conver the output batch to device
-            y_valid_device = y_valid.to(device)
+            # Add the valid predictions to list
+            valid_preds_list.append(valid_preds)      
 
-            # Get the validation prediction
-            valid_preds = model(X_valid_device)
-
-            # Calculate validation loss
-            val_loss = loss_fn(valid_preds, y_valid_device).item()
+            # Get the train prediction
+            train_preds_list.append(
+                get_predictions_in_batches(model, X_train, batch_size=batch_size, device=device)
+            )
 
         # Convert the model to training mode
         model.train()
 
         print(f"Epoch {epoch+1}/{n_epochs} - Train Loss: {avg_train_loss:.4f} - Val Loss: {val_loss:.4f}")
 
-    return model, val_loss
+    return model, val_loss, {"valid_preds_list": valid_preds_list, "train_preds_list": train_preds_list}

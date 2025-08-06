@@ -6,7 +6,10 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from src.utils.path import verify_saving_path, verify_existing_dir
+from src.data.tickers import get_most_recent_tickers_file
 from src.utils.file import remove_file, copy_file
+import torch
+import json
 
 
 def download_stock_data(ticker, stock_data_start_date, stock_data_end_date, column="Adj Close"):
@@ -64,15 +67,22 @@ def download_stock_data(ticker, stock_data_start_date, stock_data_end_date, colu
 
 
 
-def download_and_save_stock_data(tickers_list, stock_data_start_date, exclude_tickers, column="Adj Close", data_save_path="../data"):
+def download_and_save_stock_data(tickers_folder,
+                                 filename_pattern,
+                                 stock_data_start_date,
+                                 exclude_tickers,
+                                 column="Adj Close",
+                                 data_save_path="../data"):
     """
     Download stock data for multiple tickers, exclude unwanted tickers,
     filter out those with missing values, and save each valid ticker's data as a CSV.
 
     Parameters
     ----------
-    tickers_list : list of str
-        A list of stock ticker symbols to download data for.
+    tickers_folder : str or Path
+        The folder of saved stock ticker symbols to download data for.
+    filename_pattern : str
+        The filename pattern to look at the tickers folder.
     stock_data_start_date : str
         The start date for fetching stock data, in 'YYYY-MM-DD' format.
     exclude_tickers : set of str
@@ -89,24 +99,13 @@ def download_and_save_stock_data(tickers_list, stock_data_start_date, exclude_ti
     ValueError
         If none of the tickers have complete data (i.e., all contain missing values).
 
-    Notes
-    -----
-    - Only tickers with complete data (i.e., no missing values in the specified column) will be saved.
-    - Each ticker's data is saved in a separate subfolder named after the ticker.
-    - The file name format is '{TICKER}_{YYYY-MM-DD}.csv', where the date is the current date.
-    - The exclude_tickers argument must be a set for performance reasons.
-
-    Examples
-    --------
-    >>> download_and_save_stock_data(["AAPL", "GOOGL", "TSLA"], "2020-01-01", exclude_tickers={"TSLA"})
-    This will create:
-        ../data/AAPL/AAPL_2025-07-22.csv
-        ../data/GOOGL/GOOGL_2025-07-22.csv
-    assuming today's date is July 22, 2025, and TSLA is excluded.
     """
     # Check the inputs
-    if not isinstance(tickers_list, list):
-        raise TypeError(f"Expected tickers_list argument to be a list. Got {type(tickers_list).__name__}.")
+    if not isinstance(tickers_folder, (str, Path)):
+        raise TypeError(f"Expected tickers_folder argument to be a string or pathlib.Path object. Got {type(tickers_folder).__name__}.")
+    
+    if not isinstance(filename_pattern, str):
+        raise TypeError(f"Expected filename_pattern argument to be a string. Got {type(filename_pattern).__name__}.")
 
     if not isinstance(exclude_tickers, set):
         raise TypeError(f"Expected exclude_tickers argument to be a set. Got {type(exclude_tickers).__name__}.")
@@ -116,6 +115,16 @@ def download_and_save_stock_data(tickers_list, stock_data_start_date, exclude_ti
 
     if not isinstance(column, str):
         raise TypeError(f"Expected column to be a string. Got {type(column).__name__}.")
+    
+    # Verify existing tickers folder
+    verify_existing_dir(tickers_folder)
+
+    # Get the most recent tickers file
+    most_recent_file = get_most_recent_tickers_file(tickers_folder, filename_pattern)
+
+    # Open the tickers list
+    with open(most_recent_file, "r") as f:
+        tickers_list = json.load(f)
 
     # Convert the save path to a Path object
     data_save_path = Path(data_save_path)
@@ -358,36 +367,19 @@ def read_and_concat_all_stocks(data_folder_path):
 
 
 
-def read_processed_stock_data(data_folder):
+def get_most_recent_processed_data_path(data_folder):
     """
-    Find the most recent dated subfolder in the given data folder,
-    then load and return the PyTorch tensors stored in the files:
-    'X_train.pt', 'X_valid.pt', 'y_train.pt', and 'y_valid.pt'.
+    Returns the path to the most recent subfolder (by date) in the given data folder.
 
-    Assumes that the subfolder names are dates in the format 'YYYY-MM-DD'
-    and that each subfolder contains the above four files.
+    Assumes that subfolder names follow the format 'YYYY-MM-DD'.
 
-    Parameters
-    ----------
-    data_folder : str or Path
-        Path to the main data folder containing date-named subfolders.
+    Args:
+        data_folder (str or Path): Path to the parent folder containing date-named subfolders.
 
-    Returns
-    -------
-    tuple of torch.Tensor
-        Returns a tuple with four tensors in this order:
-        (X_train, X_valid, y_train, y_valid)
+    Returns:
+        Path: Path to the most recently dated subfolder.
 
-    Raises
-    ------
-    FileNotFoundError
-        If the data_folder does not exist, is not a directory,
-        or if any of the expected .pt files are missing.
-    ValueError
-        If no valid date-named subfolders are found or folder names do not match the date format.
     """
-    import torch
-
     # Convert input to Path object if needed
     data_folder = Path(data_folder)
 
@@ -395,21 +387,55 @@ def read_processed_stock_data(data_folder):
     verify_existing_dir(data_folder)
 
     # List all subfolders inside data_folder
-    subfolders = data_folder.glob("*")
+    subfolders = [f for f in data_folder.iterdir() if f.is_dir()]
+
+    # Check if there are subfolders
+    if not subfolders:
+        raise FileNotFoundError(f"No processed data subfolders found in {data_folder}")
 
     # Get the most recent folder by date-parsing folder names
-    most_recent_folder = max(
+    most_recent_processed_data_path = max(
         subfolders,
         key=lambda f: datetime.strptime(f.name, "%Y-%m-%d")
     )
 
+    return most_recent_processed_data_path
+
+
+def read_processed_data(most_recent_processed_data_path):
+    """
+    Loads and returns training and validation tensors from the specified folder.
+
+    The folder is expected to contain the following files:
+    - X_train.pt
+    - X_valid.pt
+    - y_train.pt
+    - y_valid.pt
+    - y_train_dates.pt
+    - y_valid_dates.pt
+
+    Args:
+        most_recent_processed_data_path (str or Path): Path to the folder containing the .pt files.
+
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: 
+            X_train, X_valid, y_train, y_valid tensors loaded using torch.load.
+
+    """
+
+    # Convert the argument to Path object
+    most_recent_processed_data_path = Path(most_recent_processed_data_path)
+
+    # Verify existing dir
+    verify_existing_dir(most_recent_processed_data_path) 
+
     # Define expected files inside the most recent folder
-    expected_files = ["X_train.pt", "X_valid.pt", "y_train.pt", "y_valid.pt"]
+    expected_files = ["X_train.pt", "X_valid.pt", "y_train.pt", "y_valid.pt", "y_train_dates.pt", "y_valid_dates.pt"]
 
     # Build full paths and check if all files exist
     file_paths = {}
     for fname in expected_files:
-        fpath = most_recent_folder / fname
+        fpath = most_recent_processed_data_path / fname
         if not fpath.is_file():
             raise FileNotFoundError(f"Expected file not found: {fpath}")
         file_paths[fname] = fpath
@@ -419,5 +445,7 @@ def read_processed_stock_data(data_folder):
     X_valid = torch.load(file_paths["X_valid.pt"])
     y_train = torch.load(file_paths["y_train.pt"])
     y_valid = torch.load(file_paths["y_valid.pt"])
+    y_train_dates = torch.load(file_paths["y_train_dates.pt"])
+    y_valid_dates = torch.load(file_paths["y_valid_dates.pt"])
 
-    return X_train, X_valid, y_train, y_valid
+    return X_train, X_valid, y_train, y_valid, y_train_dates, y_valid_dates

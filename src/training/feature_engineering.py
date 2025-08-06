@@ -29,36 +29,61 @@ def add_date_as_feature(data):
             'month': data.index.month,
             'weekday': data.index.weekday
         }, index=data.index)
-    ], axis=1).reset_index(drop=True)
-
+    ], axis=1)
 
 def add_lagged_features(data, target_column, n_lags=1):
     """
-    Create lagged features for time-series prediction.
-    
+    Create lagged features for time-series prediction and prepare the last
+    lagged feature row for real-time inference.
+
     Parameters
     ----------
-    data : pd.DataFrame
-        Original DataFrame with all features including the target.
+    data : pandas.DataFrame
+        Input DataFrame containing features and target column.
     target_column : str
-        Name of the target column to be predicted.
-    n_lags : int
-        Number of time steps to look back (e.g., n_lags=1 means t-1).
-    
+        Name of the target column in `data`.
+    n_lags : int, optional
+        Number of lag periods to create (default is 1).
+
     Returns
     -------
-    data_lagged : pd.DataFrame
-        DataFrame of lagged features.
+    data_lagged : pandas.DataFrame
+        DataFrame with lagged features and target column, cleaned of NaN rows.
+    last_lagged_row : pandas.DataFrame
+        Single-row DataFrame with lagged features corresponding to the last
+        available data point, aligned with `data_lagged` columns (excluding target).
 
+    Notes
+    -----
+    The lagged features are created by shifting the original features by 1 to `n_lags` rows.
+    The `last_lagged_row` is constructed manually to be used for real-time prediction, 
+    containing the most recent lagged feature values.
     """
-    # Create all lagged versions at once using list comprehension
-    lagged_data = [data.shift(lag).add_suffix(f"_{lag}") for lag in range(1, n_lags + 1)]
-    data_lagged = pd.concat(lagged_data, axis=1)
-    
-    # Add current target column
-    data_lagged[target_column] = data[target_column]
-    
-    # Drop rows with NaNs and reset index
-    data_lagged = data_lagged.dropna().reset_index(drop=True)
+    feature_cols = data.columns.drop(target_column)
 
-    return data_lagged
+    # Create lagged features
+    lagged_parts = []
+    for i in range(1, n_lags + 1):
+        shifted = data[feature_cols].shift(i).add_suffix(f"_{i}")
+        lagged_parts.append(shifted)
+    
+    data_lagged = pd.concat(lagged_parts, axis=1)
+    
+    # Create last lagged row manually, ensuring column order and names match
+    last_rows = [
+        data[feature_cols].iloc[[-i]].add_suffix(f"_{i}")
+        for i in range(n_lags, 0, -1)
+    ]
+    last_lagged_row = pd.concat(last_rows, axis=1)
+
+    # Reorder columns to match data_lagged
+    lagged_feature_columns = data_lagged.columns
+    last_lagged_row = last_lagged_row[lagged_feature_columns]
+
+    assert data_lagged.columns.equals(last_lagged_row.columns), \
+    "The columns of the lagged full data and the last row data should be the same"
+
+    data_lagged[target_column] = data[target_column]
+    data_lagged_clean = data_lagged.dropna()
+
+    return data_lagged_clean, last_lagged_row
