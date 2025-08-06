@@ -1,0 +1,4 @@
+
+general:
+  results_save_path: './results/' 
+  model_train_results_path: null

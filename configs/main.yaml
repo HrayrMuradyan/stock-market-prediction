@@ -13,3 +13,5 @@ stock:
 
 configs:
   train_config: './configs/train/train_cfg.yaml'
+  eval_config: './configs/evaluation/eval_cfg.yaml'
+  deploy_config: './configs/deployment/deployment_cfg.yaml'
