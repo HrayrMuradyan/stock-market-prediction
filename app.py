@@ -1,14 +1,23 @@
 from flask import Flask, render_template, abort
+import sys
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import json
 from pathlib import Path
+from src.inference.models import get_most_recent_model
+from src.utils.config import load_config
 
 app = Flask(__name__)
 
-LATEST_MODEL = "2025_08_06_06_23_19"
-MODELS_DIR = Path(f"models/{LATEST_MODEL}")
-INFERENCE_DIR = Path("predictions/")
-RESULTS_DIR = Path(f"results/{LATEST_MODEL}")
+config = load_config()
+latest_model_in_the_config = config['eval_config']['general']['model_train_results_path']
+models_folder = Path(config['train_config']['model']['save_path'])
+results_save_path = Path(config['eval_config']['general']['results_save_path'])
+
+INFERENCE_DIR = Path(config['deploy_config']['paths']['predictions_save_path'])
+LATEST_MODEL = latest_model_in_the_config if latest_model_in_the_config else get_most_recent_model(config['train_config']['model']['save_path']).stem
+MODELS_DIR = models_folder / LATEST_MODEL
+RESULTS_DIR = results_save_path / LATEST_MODEL
 
 # Run index function when the user visits homepage
 @app.route("/")
